@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>scratch GPT</title>
+  <style>
+    /* CSS Reset & Variables */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg-main:     #212121;
+      --bg-sidebar:  #171717;
+      --bg-input:    #2f2f2f;
+      --text-main:   #ececec;
+      --text-muted:  #8e8ea0;
+      --accent:      #19c37d;
+      --accent-hover:#1aab6d;
+      --border:      #3e3e3e;
+      --font:        'Söhne', system-ui, -apple-system, sans-serif;
+      --radius:      12px;
+    }
+
+    body {
+      font-family: var(--font);
+      background: var(--bg-main);
+      color: var(--text-main);
+      height: 100dvh;
+      display: flex;
+      overflow: hidden;
+    }
+
+    /*Sidebar*/
+    .sidebar {
+      width: 260px; min-width: 260px;
+      background: var(--bg-sidebar);
+      display: flex; flex-direction: column;
+      padding: 12px; border-right: 1px solid var(--border);
+    }
+
+    .sidebar-logo {
+      display: flex; align-items: center; gap: 10px;
+      padding: 12px 8px 20px; font-size: 18px; font-weight: 700; color: var(--accent);
+    }
+
+    .btn {
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      width: 100%; padding: 10px 12px;
+      background: transparent; border: 1px solid var(--border);
+      border-radius: var(--radius); color: var(--text-main);
+      font-size: 14px; cursor: pointer; transition: 0.15s;
+    }
+    .btn:hover { background: var(--bg-input); }
+
+    .sidebar-label {
+      font-size: 11px; font-weight: 600; letter-spacing: 0.08em;
+      text-transform: uppercase; color: var(--text-muted); padding: 16px 8px 6px;
+    }
+
+    .sidebar-footer {
+      margin-top: auto; padding: 12px 8px;
+      border-top: 1px solid var(--border); font-size: 12px; color: var(--text-muted);
+    }
+
+    .social-links { margin-top: 12px; display: flex; flex-direction: column; gap: 8px; }
+    .social-btn {
+      display: block; padding: 8px; border-radius: 8px; text-decoration: none;
+      background: var(--bg-input); color: var(--text-main); text-align: center;
+      border: 1px solid var(--border); transition: 0.15s; font-size: 12px;
+    }
+    .social-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+    /*Main Area & Chat */
+    .main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+    
+    .chat-window { flex: 1; overflow-y: auto; padding: 24px 0; scroll-behavior: smooth; }
+    .chat-window::-webkit-scrollbar { width: 6px; }
+    .chat-window::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    /* Welcome screen */
+    .welcome {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      height: 100%; gap: 16px; color: var(--text-muted); text-align: center; padding: 24px;
+    }
+    .welcome h2 { font-size: 28px; color: var(--text-main); font-weight: 600; }
+    .welcome p { font-size: 15px; max-width: 400px; line-height: 1.6; }
+
+    .welcome-suggestions {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 8px; max-width: 480px; width: 100%;
+    }
+    .suggestion-card {
+      padding: 12px 14px; background: var(--bg-input); border: 1px solid var(--border);
+      border-radius: var(--radius); font-size: 13px; color: var(--text-muted);
+      cursor: pointer; text-align: left; transition: 0.15s; line-height: 1.4;
+    }
+    .suggestion-card:hover { background: var(--border); color: var(--text-main); }
+
+    /* Message UI */
+    .message-row { max-width: 768px; margin: 0 auto; padding: 12px 24px; width: 100%; }
+    .message-bubble { display: flex; gap: 14px; align-items: flex-start; }
+
+    .avatar {
+      width: 32px; height: 32px; border-radius: 50%; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px; font-weight: 700; margin-top: 2px;
+    }
+    .avatar-user { background: #5436da; color: white; }
+    .avatar-bot  { background: var(--accent); color: #1a1a1a; }
+
+    .message-content { flex: 1; font-size: 15px; line-height: 1.65; padding-top: 4px; }
+    .message-content p { margin-bottom: 10px; }
+    .message-content p:last-child { margin-bottom: 0; }
+    .message-content pre { background: #1a1a2e; border: 1px solid var(--border); border-radius: 8px; padding: 14px; overflow-x: auto; font-size: 13px; margin: 10px 0; }
+    .message-content code { background: rgba(255,255,255,0.08); padding: 2px 5px; border-radius: 4px; font-size: 13px; }
+    .message-content pre code { background: none; padding: 0; }
+
+    .role-label { font-size: 12px; font-weight: 600; color: var(--text-muted); margin-bottom: 4px; }
+
+    /* Typing indicator */
+    .typing-indicator { display: flex; gap: 5px; align-items: center; padding: 8px 0; }
+    .typing-dot { width: 8px; height: 8px; background: var(--text-muted); border-radius: 50%; animation: bounce 1.3s infinite; }
+    .typing-dot:nth-child(2) { animation-delay: 0.15s; }
+    .typing-dot:nth-child(3) { animation-delay: 0.3s; }
+    @keyframes bounce { 0%, 60%, 100% { transform: translateY(0); } 30% { transform: translateY(-6px); } }
+
+    /*Input Area*/
+    .input-area { padding: 16px 24px 20px; background: var(--bg-main); }
+    .input-wrapper {
+      max-width: 768px; margin: 0 auto; background: var(--bg-input);
+      border: 1px solid var(--border); border-radius: 16px; display: flex;
+      align-items: flex-end; gap: 10px; padding: 10px 12px; transition: 0.15s;
+    }
+    .input-wrapper:focus-within { border-color: #555; }
+
+    #user-input {
+      flex: 1; background: transparent; border: none; outline: none; color: var(--text-main);
+      font-family: var(--font); font-size: 15px; resize: none; max-height: 200px; min-height: 24px; line-height: 1.5;
+    }
+    #user-input::placeholder { color: var(--text-muted); }
+
+    #send-btn {
+      width: 36px; height: 36px; background: var(--accent); border: none; border-radius: 10px;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0; transition: 0.15s;
+    }
+    #send-btn:hover  { background: var(--accent-hover); }
+    #send-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .input-footer { text-align: center; font-size: 11px; color: var(--text-muted); margin-top: 10px; }
+
+    /*Responsive */
+    @media (max-width: 640px) {
+      .sidebar { display: none; }
+      .message-row { padding: 10px 14px; }
+      .input-area { padding: 12px 14px 16px; }
+      .welcome-suggestions { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+      <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="#19c37d" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    scratch GPT
+  </div>
+
+  <button class="btn" onclick="newChat()">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <line x1="12" y1="5" x2="12" y2="19"/> <line x1="5" y1="12" x2="19" y2="12"/>
+    </svg>
+    New conversation
+  </button>
+
+  <div class="sidebar-label">About</div>
+
+  <div class="sidebar-footer">
+    Built from scratch using PyTorch and Django
+    
+    <div class="social-links">
+      <a href="YOUR_LINKEDIN_URL" target="_blank" class="social-btn">🔗 Suraj's LinkedIn</a>
+      <a href="YOUR_GITHUB_URL" target="_blank" class="social-btn">🐙 GitHub</a>
+    </div>
+  </div>
+</aside>
+
+<main class="main">
+
+  <div class="chat-window" id="chat-window">
+    <div class="welcome" id="welcome-screen">
+      <h2>scratch GPT</h2>
+      <p>A custom model built from scratch and fine-tuned for conversations. Ask me anything!</p>
+
+      <div class="welcome-suggestions">
+        <button class="suggestion-card" onclick="submitSuggestion(this)">Explain what a neural network is in simple terms</button>
+        <button class="suggestion-card" onclick="submitSuggestion(this)">Write a short poem about the night sky</button>
+        <button class="suggestion-card" onclick="submitSuggestion(this)">What are the benefits of learning Python?</button>
+        <button class="suggestion-card" onclick="submitSuggestion(this)">Tell me an interesting fact about black holes</button>
+      </div>
+    </div>
+    
+    <div id="messages-container"></div>
+  </div>
+
+  <div class="input-area">
+    <div class="input-wrapper">
+      <textarea id="user-input" rows="1" placeholder="Message scratch GPT..." autocomplete="off" spellcheck="true"></textarea>
+      <button id="send-btn" onclick="sendMessage()" title="Send message">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5">
+          <line x1="12" y1="19" x2="12" y2="5"/> <polyline points="5 12 12 5 19 12"/>
+        </svg>
+      </button>
+    </div>
+    <div class="input-footer">This is an experimental model. It can make mistakes</div>
+  </div>
+
+</main>
+
+<script>
+  let isLoading = false;
+
+  const chatWindow    = document.getElementById("chat-window");
+  const msgContainer  = document.getElementById("messages-container");
+  const welcomeScreen = document.getElementById("welcome-screen");
+  const userInput     = document.getElementById("user-input");
+  const sendBtn       = document.getElementById("send-btn");
+
+  // Auto-resize textarea
+  userInput.addEventListener("input", () => {
+    userInput.style.height = "auto";
+    userInput.style.height = Math.min(userInput.scrollHeight, 200) + "px";
+  });
+
+  // Send on Enter
+  userInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+  });
+
+  function submitSuggestion(card) {
+    userInput.value = card.textContent.trim();
+    sendMessage();
+  }
+
+  // Format message text securely
+  function formatMessage(text) {
+    let formatted = text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    formatted = formatted.replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>');
+    formatted = formatted.replace(/`([^`]+)`/g, '<code>$1</code>');
+    formatted = formatted.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+    formatted = formatted.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+    formatted = formatted.replace(/\n\n+/g, '</p><p>');
+    formatted = formatted.replace(/\n/g, '<br>');
+    return `<p>${formatted}</p>`;
+  }
+
+  // Inject Message UI (Replaces bulky DOM element creation)
+  function appendMessage(role, content) {
+    const isUser = role === "user";
+    const html = `
+      <div class="message-row">
+        <div class="message-bubble">
+          <div class="avatar ${isUser ? 'avatar-user' : 'avatar-bot'}">${isUser ? 'U' : 'AI'}</div>
+          <div class="message-content">
+            <div class="role-label">${isUser ? 'You' : 'scratch GPT'}</div>
+            <div class="message-text">${formatMessage(content)}</div>
+          </div>
+        </div>
+      </div>`;
+    msgContainer.insertAdjacentHTML('beforeend', html);
+  }
+
+  // Inject Typing UI
+  function showTyping() {
+    const html = `
+      <div class="message-row" id="typing-row">
+        <div class="message-bubble">
+          <div class="avatar avatar-bot">AI</div>
+          <div class="message-content">
+            <div class="role-label">scratch GPT</div>
+            <div class="typing-indicator">
+              <div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div>
+            </div>
+          </div>
+        </div>
+      </div>`;
+    msgContainer.insertAdjacentHTML('beforeend', html);
+  }
+
+  function scrollToBottom() {
+    chatWindow.scrollTo({ top: chatWindow.scrollHeight, behavior: "smooth" });
+  }
+
+  async function sendMessage() {
+    const text = userInput.value.trim();
+    if (!text || isLoading) return;
+
+    welcomeScreen.style.display = "none";
+    userInput.value = "";
+    userInput.style.height = "auto";
+
+    appendMessage("user", text);
+    showTyping();
+    scrollToBottom();
+
+    isLoading = true;
+    sendBtn.disabled = true;
+    userInput.disabled = true;
+
+    try {
+      const response = await fetch("/api/chat/", {
+        method : "POST",
+        headers: { "Content-Type": "application/json" },
+        body   : JSON.stringify({ message: text }),
+      });
+      const data = await response.json();
+      document.getElementById("typing-row")?.remove();
+
+      if (response.ok && data.reply) {
+        appendMessage("assistant", data.reply);
+      } else {
+        appendMessage("assistant", `⚠️ Error: ${data.error || "Something went wrong."}`);
+      }
+    } catch (err) {
+      document.getElementById("typing-row")?.remove();
+      appendMessage("assistant", "⚠️ Network error. Please check your connection and try again.");
+    }
+
+    isLoading = false;
+    sendBtn.disabled = false;
+    userInput.disabled = false;
+    userInput.focus();
+    scrollToBottom();
+  }
+
+  async function newChat() {
+    if (isLoading) return;
+    try { await fetch("/api/reset/", { method: "POST" }); } catch (_) {}
+    
+    msgContainer.innerHTML = "";
+    welcomeScreen.style.display = "flex";
+    userInput.value = "";
+    userInput.style.height = "auto";
+    userInput.focus();
+  }
+
+  window.addEventListener("load", () => userInput.focus());
+</script>
+
+</body>
+</html>
