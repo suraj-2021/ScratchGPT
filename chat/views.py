@@ -32,14 +32,31 @@ def chat_api(request):
         tokenizer = get_tokenizer()
         device    = get_device_str()
 
+        # --- IMPROVEMENT 1: STANDARD SYSTEM PROMPT ---
+        # A clear instruction helps smaller models understand their purpose
+        # and grounds their persona before answering.
+        system_prompt = (
+            "You are a helpful, respectful, and honest AI assistant. "
+            "Always answer as accurately as possible within the context provided. "
+            "If a question does not make any sense, explain why."
+        )
+
+        # --- IMPROVEMENT 2: CHAT HISTORY TRUNCATION BEFORE GENERATION ---
+        # The 124M model has a strict 1024 token limit.
+        # We slice the history array to only pass the last 6-8 turns to the model
+        # so it doesn't crash when conversations get long. 
+        context_to_pass = history[-8:] 
+
         reply = generate_response(
             model=model,
             tokenizer=tokenizer,
-            conversation_history=history,
+            conversation_history=context_to_pass, # <--- Passing truncated history here
+            system_prompt=system_prompt,          # <--- Passing the system prompt here
             device=device,
-            max_new_tokens=300,
+            max_new_tokens=150,
             temperature=0.7,
             top_k=40,
+            repetition_penalty=1.2,
         )
 
         # If empty — return early WITHOUT saving to history (avoids poisoning future prompts)
@@ -51,6 +68,8 @@ def chat_api(request):
 
         # Only reach here if reply is valid — safe to save to history
         history.append({"role": "assistant", "content": reply})
+        
+        # Keep the session storage lightweight
         if len(history) > 10:
             history = history[-10:]
 

@@ -58,7 +58,30 @@ def initialise_model():
         print(f"[ModelLoader] Fine-tuned weights found: {FINETUNED_WEIGHTS}")
         model    = load_gpt2_into_model(model, device=_device)
         ft_state = torch.load(FINETUNED_WEIGHTS, map_location=_device, weights_only=True)
-        model.load_state_dict(ft_state, strict=False)
+        
+        # --- NEW CODE: Translate Hugging Face keys to your custom keys ---
+        custom_state_dict = {}
+        for key, value in ft_state.items():
+            new_key = key
+            new_key = new_key.replace("transformer.wte.weight", "tok_emb.weight")
+            new_key = new_key.replace("transformer.wpe.weight", "pos_emb.weight")
+            new_key = new_key.replace("transformer.h.", "trf_blocks.")
+            new_key = new_key.replace("transformer.ln_f.", "final_norm.")
+            
+            # Hugging Face uses Conv1D for attention/MLP, which requires transposing 
+            # the weights to match standard PyTorch nn.Linear.
+            if "attn.c_attn.weight" in key or "attn.c_proj.weight" in key or "mlp.c_fc.weight" in key or "mlp.c_proj.weight" in key:
+                value = value.t()
+                
+            # Map MLP keys to your FeedForward keys
+            new_key = new_key.replace("mlp.c_fc.", "ff.layers.0.")
+            new_key = new_key.replace("mlp.c_proj.", "ff.layers.2.")
+            
+            custom_state_dict[new_key] = value
+        # -----------------------------------------------------------------
+        
+        # Load the translated dictionary. strict=False is kept in case tied weights (like out_head) are missing from the dict.
+        model.load_state_dict(custom_state_dict, strict=False)
         print("[ModelLoader] Fine-tuned weights loaded on top of GPT-2 base.")
     else:
         print("[ModelLoader] ℹ️  No fine-tuned weights found — using base GPT-2.")

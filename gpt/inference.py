@@ -47,6 +47,7 @@ def generate(
     max_new_tokens=256,
     temperature=0.8,
     top_k=40,
+    repetition_penalty=1.2, # Added repetition penalty here
     device="cpu",
     stop_tokens=None,
 ):
@@ -61,6 +62,14 @@ def generate(
         current_ids = input_ids[:, -context_len:]
         logits      = model(current_ids)
         next_logits = logits[:, -1, :].clone()
+
+        # --- Apply Repetition Penalty ---
+        if repetition_penalty != 1.0:
+            for token in set(generated_ids):
+                if next_logits[0, token] < 0:
+                    next_logits[0, token] *= repetition_penalty
+                else:
+                    next_logits[0, token] /= repetition_penalty
 
         # Temperature scaling
         if temperature != 1.0:
@@ -106,6 +115,8 @@ def generate(
     print(f"[TOKEN DEBUG] Decoded raw (no strip): '{tokenizer.decode(generated_ids[:50])!r}'")
     result = tokenizer.decode(generated_ids)
     return result.strip()
+
+
 @torch.no_grad()
 def generate_response(model, tokenizer, conversation_history, system_prompt=None, device="cpu", **gen_kwargs):
     prompt = format_chat_prompt(conversation_history, system_prompt=system_prompt)
@@ -114,6 +125,7 @@ def generate_response(model, tokenizer, conversation_history, system_prompt=None
         max_new_tokens=300,
         temperature=0.8,
         top_k=50,
+        repetition_penalty=1.2, # Added default penalty here as well
         device=device,
         stop_tokens=["### Instruction:"],
     )
